@@ -10,27 +10,51 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Slider } from '@/components/ui/slider';
 import { ProjectFormData, FocusType, FOCUS_TYPE_CONFIGS } from '@/types';
 
+interface WebsiteInput {
+  brand_name: string;
+  domain: string;
+}
+
 export default function NewProjectPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState<ProjectFormData>({
-    brand_name: '',
-    domain: '',
-    focus_type: 'หวยล้วน',
+  const [websites, setWebsites] = useState<WebsiteInput[]>([
+    { brand_name: '', domain: '' }
+  ]);
+  const [sharedSettings, setSharedSettings] = useState({
+    focus_type: 'หวยล้วน' as FocusType,
     focus_percentages: { lottery: 100 },
     total_pages: 10,
-    url_style: 'nested',
-    output_language: 'thai_english',
+    url_style: 'nested' as 'nested' | 'flat',
+    output_language: 'thai_english' as 'thai' | 'thai_english',
     tone: 'professional',
     word_count_range: '1500-2000'
   });
 
   const handleFocusTypeChange = (focusType: FocusType) => {
-    setFormData({
-      ...formData,
+    setSharedSettings({
+      ...sharedSettings,
       focus_type: focusType,
       focus_percentages: FOCUS_TYPE_CONFIGS[focusType]
     });
+  };
+
+  const addWebsite = () => {
+    if (websites.length < 5) {
+      setWebsites([...websites, { brand_name: '', domain: '' }]);
+    }
+  };
+
+  const removeWebsite = (index: number) => {
+    if (websites.length > 1) {
+      setWebsites(websites.filter((_, i) => i !== index));
+    }
+  };
+
+  const updateWebsite = (index: number, field: keyof WebsiteInput, value: string) => {
+    const newWebsites = [...websites];
+    newWebsites[index][field] = value;
+    setWebsites(newWebsites);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -38,28 +62,44 @@ export default function NewProjectPage() {
     setLoading(true);
 
     try {
-      // Save project to database
-      const response = await fetch('/api/projects', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      });
+      const projectIds: string[] = [];
 
-      if (!response.ok) throw new Error('Failed to create project');
+      // Create and generate structure for each website
+      for (const website of websites) {
+        if (!website.brand_name || !website.domain) continue;
 
-      const project = await response.json();
+        const formData: ProjectFormData = {
+          ...website,
+          ...sharedSettings
+        };
 
-      // Generate structure
-      const structureResponse = await fetch('/api/generate/structure', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId: project.id, formData })
-      });
+        // Save project to database
+        const response = await fetch('/api/projects', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData)
+        });
 
-      if (!structureResponse.ok) throw new Error('Failed to generate structure');
+        if (!response.ok) throw new Error(`Failed to create project for ${website.brand_name}`);
 
-      // Redirect to structure preview
-      router.push(`/projects/${project.id}/structure`);
+        const project = await response.json();
+        projectIds.push(project.id);
+
+        // Generate structure
+        const structureResponse = await fetch('/api/generate/structure', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ projectId: project.id, formData })
+        });
+
+        if (!structureResponse.ok) {
+          console.error(`Failed to generate structure for ${website.brand_name}`);
+        }
+      }
+
+      // Redirect to batch structure preview with all project IDs
+      const idsParam = projectIds.join(',');
+      router.push(`/projects/batch/structure?ids=${idsParam}`);
     } catch (error) {
       console.error('Error:', error);
       alert('เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง');
@@ -71,54 +111,98 @@ export default function NewProjectPage() {
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="container mx-auto px-4">
-        <div className="max-w-3xl mx-auto">
+        <div className="max-w-4xl mx-auto">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
               สร้างโปรเจกต์ใหม่
             </h1>
             <p className="text-gray-600">
-              Step 1: กรอกข้อมูลโปรเจกต์
+              Step 1: กรอกข้อมูลโปรเจกต์ (สร้างได้สูงสุด 5 เว็บพร้อมกัน)
             </p>
           </div>
 
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Websites Section */}
             <Card>
               <CardHeader>
-                <CardTitle>ข้อมูลพื้นฐาน</CardTitle>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>เว็บไซต์ ({websites.length}/5)</CardTitle>
+                    <CardDescription>
+                      เพิ่มเว็บไซต์ที่ต้องการสร้างโครงสร้าง
+                    </CardDescription>
+                  </div>
+                  {websites.length < 5 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={addWebsite}
+                      size="sm"
+                    >
+                      + เพิ่มเว็บไซต์
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {websites.map((website, index) => (
+                  <div key={index} className="p-4 border rounded-lg space-y-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="font-semibold">เว็บไซต์ {index + 1}</h4>
+                      {websites.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeWebsite(index)}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          ลบ
+                        </Button>
+                      )}
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor={`brand_${index}`}>ชื่อแบรนด์ *</Label>
+                        <Input
+                          id={`brand_${index}`}
+                          required
+                          placeholder="เช่น rb7, panama888"
+                          value={website.brand_name}
+                          onChange={(e) => updateWebsite(index, 'brand_name', e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor={`domain_${index}`}>โดเมน *</Label>
+                        <Input
+                          id={`domain_${index}`}
+                          required
+                          placeholder="เช่น rb7huay.com"
+                          value={website.domain}
+                          onChange={(e) => updateWebsite(index, 'domain', e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* Shared Settings */}
+            <Card>
+              <CardHeader>
+                <CardTitle>การตั้งค่าร่วม</CardTitle>
                 <CardDescription>
-                  กรอกข้อมูลเว็บไซต์ที่ต้องการสร้าง
+                  การตั้งค่าเหล่านี้จะใช้กับทุกเว็บไซต์
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* Brand Name */}
-                <div>
-                  <Label htmlFor="brand_name">ชื่อแบรนด์ *</Label>
-                  <Input
-                    id="brand_name"
-                    required
-                    placeholder="เช่น rb7, panama888"
-                    value={formData.brand_name}
-                    onChange={(e) => setFormData({ ...formData, brand_name: e.target.value })}
-                  />
-                </div>
-
-                {/* Domain */}
-                <div>
-                  <Label htmlFor="domain">โดเมน *</Label>
-                  <Input
-                    id="domain"
-                    required
-                    placeholder="เช่น rb7huay.com"
-                    value={formData.domain}
-                    onChange={(e) => setFormData({ ...formData, domain: e.target.value })}
-                  />
-                </div>
-
                 {/* Focus Type */}
                 <div>
                   <Label htmlFor="focus_type">Focus Type *</Label>
                   <Select
-                    value={formData.focus_type}
+                    value={sharedSettings.focus_type}
                     onValueChange={(value) => handleFocusTypeChange(value as FocusType)}
                   >
                     <SelectTrigger>
@@ -137,20 +221,20 @@ export default function NewProjectPage() {
                     </SelectContent>
                   </Select>
                   <div className="mt-2 text-sm text-gray-600">
-                    สัดส่วน: {JSON.stringify(formData.focus_percentages)}
+                    สัดส่วน: {JSON.stringify(sharedSettings.focus_percentages)}
                   </div>
                 </div>
 
                 {/* Total Pages */}
                 <div>
-                  <Label htmlFor="total_pages">จำนวนหน้า: {formData.total_pages}</Label>
+                  <Label htmlFor="total_pages">จำนวนหน้า: {sharedSettings.total_pages}</Label>
                   <Slider
                     id="total_pages"
                     min={5}
                     max={30}
                     step={1}
-                    value={[formData.total_pages]}
-                    onValueChange={(value) => setFormData({ ...formData, total_pages: value[0] })}
+                    value={[sharedSettings.total_pages]}
+                    onValueChange={(value) => setSharedSettings({ ...sharedSettings, total_pages: value[0] })}
                     className="mt-2"
                   />
                   <div className="flex justify-between text-xs text-gray-500 mt-1">
@@ -165,9 +249,9 @@ export default function NewProjectPage() {
                   <div className="grid grid-cols-2 gap-4 mt-2">
                     <button
                       type="button"
-                      onClick={() => setFormData({ ...formData, url_style: 'nested' })}
+                      onClick={() => setSharedSettings({ ...sharedSettings, url_style: 'nested' })}
                       className={`p-4 border-2 rounded-lg text-left transition-colors ${
-                        formData.url_style === 'nested'
+                        sharedSettings.url_style === 'nested'
                           ? 'border-blue-500 bg-blue-50'
                           : 'border-gray-200 hover:border-gray-300'
                       }`}
@@ -177,9 +261,9 @@ export default function NewProjectPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setFormData({ ...formData, url_style: 'flat' })}
+                      onClick={() => setSharedSettings({ ...sharedSettings, url_style: 'flat' })}
                       className={`p-4 border-2 rounded-lg text-left transition-colors ${
-                        formData.url_style === 'flat'
+                        sharedSettings.url_style === 'flat'
                           ? 'border-blue-500 bg-blue-50'
                           : 'border-gray-200 hover:border-gray-300'
                       }`}
@@ -196,9 +280,9 @@ export default function NewProjectPage() {
                   <div className="grid grid-cols-2 gap-4 mt-2">
                     <button
                       type="button"
-                      onClick={() => setFormData({ ...formData, output_language: 'thai' })}
+                      onClick={() => setSharedSettings({ ...sharedSettings, output_language: 'thai' })}
                       className={`p-4 border-2 rounded-lg text-left transition-colors ${
-                        formData.output_language === 'thai'
+                        sharedSettings.output_language === 'thai'
                           ? 'border-blue-500 bg-blue-50'
                           : 'border-gray-200 hover:border-gray-300'
                       }`}
@@ -208,9 +292,9 @@ export default function NewProjectPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setFormData({ ...formData, output_language: 'thai_english' })}
+                      onClick={() => setSharedSettings({ ...sharedSettings, output_language: 'thai_english' })}
                       className={`p-4 border-2 rounded-lg text-left transition-colors ${
-                        formData.output_language === 'thai_english'
+                        sharedSettings.output_language === 'thai_english'
                           ? 'border-blue-500 bg-blue-50'
                           : 'border-gray-200 hover:border-gray-300'
                       }`}
@@ -225,8 +309,8 @@ export default function NewProjectPage() {
                 <div>
                   <Label htmlFor="tone">Tone</Label>
                   <Select
-                    value={formData.tone}
-                    onValueChange={(value) => setFormData({ ...formData, tone: value })}
+                    value={sharedSettings.tone}
+                    onValueChange={(value) => setSharedSettings({ ...sharedSettings, tone: value })}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -243,8 +327,8 @@ export default function NewProjectPage() {
                 <div>
                   <Label htmlFor="word_count_range">Word Count Range</Label>
                   <Select
-                    value={formData.word_count_range}
-                    onValueChange={(value) => setFormData({ ...formData, word_count_range: value })}
+                    value={sharedSettings.word_count_range}
+                    onValueChange={(value) => setSharedSettings({ ...sharedSettings, word_count_range: value })}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -257,9 +341,13 @@ export default function NewProjectPage() {
                     </SelectContent>
                   </Select>
                 </div>
+              </CardContent>
+            </Card>
 
-                {/* Submit Button */}
-                <div className="flex gap-4 pt-4">
+            {/* Submit Button */}
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex gap-4">
                   <Button
                     type="button"
                     variant="outline"
@@ -269,7 +357,7 @@ export default function NewProjectPage() {
                     ยกเลิก
                   </Button>
                   <Button type="submit" disabled={loading} className="flex-1">
-                    {loading ? 'กำลังสร้าง...' : 'สร้างโปรเจกต์และ Generate Structure'}
+                    {loading ? `กำลังสร้าง ${websites.length} เว็บไซต์...` : `สร้าง ${websites.length} เว็บไซต์และ Generate Structure`}
                   </Button>
                 </div>
               </CardContent>
