@@ -79,18 +79,21 @@ export default function BatchExportPage() {
       return;
     }
 
-    selectedProjects.forEach(({ project, pages }) => {
+    // Generate base timestamp once
+    const now = new Date();
+    const dateStr = now.toISOString().split('T')[0].replace(/-/g, ''); // YYYYMMDD
+    const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, ''); // HHMMSS
+
+    selectedProjects.forEach(({ project, pages }, index) => {
       const exportData: ExportData = {
         project,
         pages
       };
 
-      // Generate filename: brand-date-time.ext
-      const now = new Date();
-      const dateStr = now.toISOString().split('T')[0].replace(/-/g, ''); // YYYYMMDD
-      const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, ''); // HHMMSS
+      // Generate filename: brand-date-time-index.ext
       const brandName = project.brand_name.replace(/\s+/g, '-').toLowerCase();
-      const filename = `${brandName}-${dateStr}-${timeStr}`;
+      const fileIndex = selectedProjects.length > 1 ? `-${index + 1}` : '';
+      const filename = `${brandName}-${dateStr}-${timeStr}${fileIndex}`;
 
       switch (format) {
         case 'json':
