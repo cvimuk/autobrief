@@ -55,10 +55,8 @@ export function exportAsMarkdown(data: ExportData): string {
     md += `## Content Briefs\n\n`;
 
     briefs.forEach((brief, index) => {
-      const page = pages.find(p => p.id === brief.page_id);
-      if (!page) return;
-
-      md += `### ${index + 1}. ${page.url_path}\n\n`;
+      md += `### ${index + 1}. ${brief.page_url}\n\n`;
+      md += `**Page Type:** ${brief.page_type}\n\n`;
       md += `**Meta Title:** ${brief.meta_title || 'N/A'}\n\n`;
       md += `**Meta Description:** ${brief.meta_description || 'N/A'}\n\n`;
       md += `**H1:** ${brief.h1 || 'N/A'}\n\n`;

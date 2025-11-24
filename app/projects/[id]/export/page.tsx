@@ -15,6 +15,7 @@ export default function ExportPage() {
   const [loading, setLoading] = useState(true);
   const [project, setProject] = useState<Project | null>(null);
   const [pages, setPages] = useState<Page[]>([]);
+  const [briefs, setBriefs] = useState<any[]>([]);
 
   useEffect(() => {
     fetchData();
@@ -31,6 +32,13 @@ export default function ExportPage() {
       if (!pagesRes.ok) throw new Error('Failed to fetch pages');
       const pagesData = await pagesRes.json();
       setPages(pagesData);
+
+      // Fetch briefs
+      const briefsRes = await fetch(`/api/projects/${projectId}/briefs`);
+      if (briefsRes.ok) {
+        const briefsData = await briefsRes.json();
+        setBriefs(briefsData);
+      }
     } catch (error) {
       console.error('Error fetching data:', error);
       alert('เกิดข้อผิดพลาดในการโหลดข้อมูล');
@@ -44,7 +52,8 @@ export default function ExportPage() {
 
     const exportData: ExportData = {
       project,
-      pages
+      pages,
+      briefs
     };
 
     const brandName = project.brand_name;
@@ -209,7 +218,7 @@ export default function ExportPage() {
               <div className="flex gap-4">
                 <Button
                   variant="outline"
-                  onClick={() => router.push(`/projects/${projectId}/structure`)}
+                  onClick={() => router.push(`/projects/${projectId}/briefs`)}
                 >
                   ย้อนกลับ
                 </Button>
