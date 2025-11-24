@@ -64,10 +64,35 @@ export async function callGemini({
 
   const text = data.candidates[0].content.parts[0].text;
 
-  return responseFormat === 'json' ? JSON.parse(text) : text;
+  if (responseFormat === 'json') {
+    try {
+      return JSON.parse(text);
+    } catch (error) {
+      // Try to fix common JSON issues
+      console.error('JSON parse error, attempting to fix...', error);
+
+      // Try to extract JSON from code blocks if present
+      let cleanedText = text.trim();
+      if (cleanedText.startsWith('```json')) {
+        cleanedText = cleanedText.replace(/```json\s*/, '').replace(/```\s*$/, '');
+      } else if (cleanedText.startsWith('```')) {
+        cleanedText = cleanedText.replace(/```\s*/, '').replace(/```\s*$/, '');
+      }
+
+      // Try parsing again
+      try {
+        return JSON.parse(cleanedText);
+      } catch (secondError) {
+        console.error('Failed to fix JSON:', cleanedText.substring(0, 500));
+        throw new GeminiError('Failed to parse JSON response from Gemini API');
+      }
+    }
+  }
+
+  return text;
 }
 
-// Retry with exponential backoff for rate limiting
+// Retry with exponential backoff for rate limiting and JSON parse errors
 export async function callGeminiWithRetry(
   request: GeminiRequest,
   maxRetries = 3
@@ -76,13 +101,23 @@ export async function callGeminiWithRetry(
     try {
       return await callGemini(request);
     } catch (error: any) {
+      const isLastRetry = i === maxRetries - 1;
+
       // Rate limit: 15 RPM
-      if (error.status === 429 && i < maxRetries - 1) {
+      if (error.status === 429 && !isLastRetry) {
         const waitTime = Math.pow(2, i) * 1000; // Exponential backoff
         console.log(`Rate limited. Waiting ${waitTime}ms before retry ${i + 1}/${maxRetries}...`);
         await new Promise(resolve => setTimeout(resolve, waitTime));
         continue;
       }
+
+      // JSON parse error - retry with slightly higher temperature
+      if (error.message?.includes('parse JSON') && !isLastRetry) {
+        console.log(`JSON parse error. Retrying ${i + 1}/${maxRetries}...`);
+        await new Promise(resolve => setTimeout(resolve, 500));
+        continue;
+      }
+
       throw error;
     }
   }

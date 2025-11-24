@@ -56,22 +56,27 @@ export default function ExportPage() {
       briefs
     };
 
-    const brandName = project.brand_name;
+    // Generate filename: brand-date-time.ext
+    const now = new Date();
+    const dateStr = now.toISOString().split('T')[0].replace(/-/g, ''); // YYYYMMDD
+    const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, ''); // HHMMSS
+    const brandName = project.brand_name.replace(/\s+/g, '-').toLowerCase();
+    const filename = `${brandName}-${dateStr}-${timeStr}`;
 
     switch (format) {
       case 'json':
         const jsonContent = exportAsJSON(exportData);
-        downloadFile(jsonContent, `${brandName}_structure.json`, 'application/json');
+        downloadFile(jsonContent, `${filename}.json`, 'application/json');
         break;
 
       case 'csv':
         const csvContent = exportAsCSV(exportData);
-        downloadFile(csvContent, `${brandName}_structure.csv`, 'text/csv');
+        downloadFile(csvContent, `${filename}.csv`, 'text/csv');
         break;
 
       case 'markdown':
         const mdContent = exportAsMarkdown(exportData);
-        downloadFile(mdContent, `${brandName}_structure.md`, 'text/markdown');
+        downloadFile(mdContent, `${filename}.md`, 'text/markdown');
         break;
     }
   };
