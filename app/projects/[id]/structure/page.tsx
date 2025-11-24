@@ -42,7 +42,7 @@ export default function StructurePreviewPage() {
   };
 
   const handleContinue = () => {
-    router.push(`/projects/${projectId}/briefs`);
+    router.push(`/projects/${projectId}/export`);
   };
 
   if (loading) {
@@ -156,7 +156,7 @@ export default function StructurePreviewPage() {
                   สร้างใหม่
                 </Button>
                 <Button onClick={handleContinue} className="flex-1">
-                  ต่อไป: Generate Content Briefs
+                  ต่อไป: Export Files
                 </Button>
               </div>
             </CardContent>

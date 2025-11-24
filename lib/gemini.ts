@@ -126,7 +126,7 @@ export async function callGeminiWithRetry(
 
 // Generate web structure
 export async function generateStructure(projectData: any, existingPatterns: string[] = []) {
-  const prompt = `คุณเป็น Web Structure Specialist สำหรับเว็บไซต์ TM ในประเทศไทย
+  const prompt = `คุณเป็น SEO & Information Architecture Specialist สำหรับเว็บไซต์ TM ในประเทศไทย
 
 ## Input ที่ได้รับ:
 - Brand: ${projectData.brand_name}
@@ -139,21 +139,56 @@ export async function generateStructure(projectData: any, existingPatterns: stri
 
 ## หน้าบังคับ (ต้องมีเสมอ):
 1. / (Homepage) - Pillar หลัก
-2. /register - Conversion
-3. /promotion - Support
-4. /contact - Support
+2. /register - Conversion (root level)
+3. /promotion - Support (root level)
+4. /contact - Support (root level)
 
 ## URL Patterns ที่ใช้ไปแล้ว (ห้ามซ้ำ):
 ${existingPatterns.length > 0 ? existingPatterns.join(', ') : 'ไม่มี'}
 
-## กฎการสร้าง:
-1. แบ่งหน้าตามสัดส่วนที่กำหนด (ปัดเศษได้)
-2. ทุก category ต้องมี Parent page (Pillar)
-3. URL ต้องไม่ซ้ำกับ patterns ที่ใช้ไปแล้ว
-4. ใช้ URL style ตามที่เลือก (nested/flat)
-5. Homepage เป็น Pillar หลัก link ไปทุก section
-6. หน้า Conversion (register) ต้องมี priority สูง
-7. title_pattern ต้องเป็นรูปแบบ: "ชื่อไทย {brand}" เท่านั้น (ไม่ต้องมีภาษาอังกฤษ)
+## หลัก SEO Information Architecture (สำคัญมาก!):
+
+### 1. Root Level Pages (ห้ามซ้อนใน category):
+- **Support Pages**: /about, /contact, /terms, /privacy, /rules, /faq, /blog
+- **Conversion Pages**: /register, /login, /download
+- **Feature Pages**: /promotion, /vip, /affiliate
+- หน้าพวกนี้เป็น Global Pages ที่ใช้ทั้งเว็บ ไม่เกี่ยวกับ category ใดโดยเฉพาะ
+
+### 2. Category Structure (Pillar + Clusters):
+- **Pillar Page** (Parent): /lottery, /casino, /slots, /football
+- **Cluster Pages** (Children): /lottery/hanoi, /lottery/laos, /casino/baccarat, /slots/pg
+- **กฎ**: Cluster pages ต้องเกี่ยวข้องกับ Pillar โดยตรง (เนื้อหาเดียวกัน)
+
+### 3. ตัวอย่างที่ถูกต้อง:
+✅ /rules (Global - ใช้ทั้งเว็บ)
+✅ /lottery (Pillar)
+✅ /lottery/hanoi (Cluster - เกี่ยวกับหวยโดยตรง)
+✅ /lottery/how-to-play (Cluster - เกี่ยวกับหวยโดยตรง)
+
+### 4. ตัวอย่างที่ผิด:
+❌ /lottery/rules (rules ไม่เฉพาะหวย ใช้ทั้งเว็บ)
+❌ /lottery/register (register ไม่เฉพาะหวย ใช้ทั้งเว็บ)
+❌ /lottery/contact (contact ไม่เฉพาะหวย ใช้ทั้งเว็บ)
+
+## กฎการสร้าง URL:
+1. **แบ่งหน้าตามสัดส่วน**: ให้ได้ตามที่กำหนด (ปัดเศษได้)
+2. **Pillar-Cluster Model**:
+   - สร้าง Pillar page สำหรับแต่ละ category (lottery, casino, slots, football)
+   - สร้าง Cluster pages ที่เกี่ยวข้องกับ Pillar โดยตรง
+3. **Support Pages ที่ Root Level**:
+   - Rules, FAQ, Terms, Privacy, Blog, About → อยู่ที่ root (/)
+   - ไม่ซ้อนใน category ใดๆ
+4. **Conversion Pages ที่ Root Level**:
+   - Register, Login, Download → อยู่ที่ root (/)
+5. **URL ต้องไม่ซ้ำ**: เช็คกับ patterns ที่ใช้ไปแล้ว
+6. **Title Pattern**: "ชื่อไทย {brand}" เท่านั้น (ไม่มีภาษาอังกฤษ)
+7. **URL Style**: ใช้ตามที่เลือก (nested/flat)
+
+## Page Types:
+- **pillar**: หน้า Parent ของแต่ละ category (/lottery, /casino)
+- **cluster**: หน้า Child content (/lottery/hanoi, /casino/baccarat)
+- **conversion**: หน้าที่ต้องการให้ user ทำ action (/register, /login)
+- **support**: หน้าสนับสนุนทั่วไป (/contact, /about, /faq, /rules, /terms)
 
 ## Output Format (JSON):
 {
@@ -174,19 +209,26 @@ ${existingPatterns.length > 0 ? existingPatterns.join(', ') : 'ไม่มี'}
     },
     {
       "url_path": "/lottery/hanoi",
-      "page_type": "content",
+      "page_type": "cluster",
       "title_pattern": "หวยฮานอย {brand}",
       "category": "lottery",
+      "is_required": false
+    },
+    {
+      "url_path": "/rules",
+      "page_type": "support",
+      "title_pattern": "กติกาและเงื่อนไข {brand}",
+      "category": "general",
       "is_required": false
     }
   ],
   "internal_links": {
-    "/": ["pillar ทุกหมวด"],
-    "/lottery": ["/", "/lottery/*"]
+    "/": ["/lottery", "/casino", "/rules", "/contact"],
+    "/lottery": ["/", "/lottery/hanoi", "/lottery/laos"]
   }
 }
 
-สร้าง structure ที่สมบูรณ์และไม่ซ้ำเลย`;
+สร้าง structure ที่ถูกต้องตาม SEO best practices และ Information Architecture`;
 
   return await callGeminiWithRetry({
     prompt,
